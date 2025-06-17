@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Editable Table</title>
+  <style>
+    table, th, td { border: 1px solid blue; border-collapse: collapse; padding: 10px; }
+    th { background-color: #4A90E2; color: white; }
+    .selected { background-color: #D3E5FF; }
+  </style>
+</head>
+<body>
+
+<h3>Edit Row</h3>
+<label>col1: <input type="text" id="col1Input"></label><br>
+<label>col2: <input type="text" id="col2Input"></label><br>
+<label>col3: <input type="text" id="col3Input"></label><br>
+<label>col4: <input type="text" id="col4Input"></label><br>
+<button onclick="saveRow()">Save</button>
+<button onclick="addRow()">Add</button>
+
+<h3>Table</h3>
+<table id="dataTable">
+  <thead>
+    <tr>
+      <th>ID</th><th>col1</th><th>col2</th><th>col3</th><th>col4</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+  let selectedId = null;
+
+  async function loadTable() {
+    try {
+      const res = await fetch('http://localhost:3000/api/rows');
+      const data = await res.json();
+      const tbody = document.querySelector('#dataTable tbody');
+      tbody.innerHTML = '';
+
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.onclick = () => selectRow(row, tr);
+        tr.innerHTML = `
+          <td>${row.id}</td>
+          <td>${row.col1}</td>
+          <td>${row.col2}</td>
+          <td>${row.col3}</td>
+          <td>${row.col4}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (err) {
+      console.error('Failed to load table:', err);
+    }
+  }
+
+  async function addRow() {
+    const newRow = {
+      col1: document.getElementById("col1Input").value,
+      col2: document.getElementById("col2Input").value,
+      col3: document.getElementById("col3Input").value,
+      col4: document.getElementById("col4Input").value,
+    };
+
+    try {
+      const res = await fetch('http://localhost:3000/api/rows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRow)
+      });
+
+      if (res.ok) {
+        alert("Row added successfully!");
+        document.getElementById("col1Input").value = '';
+        document.getElementById("col2Input").value = '';
+        document.getElementById("col3Input").value = '';
+        document.getElementById("col4Input").value = '';
+        selectedId = null;
+        document.querySelectorAll('tbody tr').forEach(r => r.classList.remove('selected'));
+        loadTable(); // Reload updated table
+      } else {
+        const err = await res.json();
+        alert("Error: " + err.error);
+      }
+    } catch (err) {
+      console.error("Add failed:", err);
+    }
+  }
+
+  function selectRow(row, tr) {
+    document.getElementById("col1Input").value = row.col1;
+    document.getElementById("col2Input").value = row.col2;
+    document.getElementById("col3Input").value = row.col3;
+    document.getElementById("col4Input").value = row.col4;
+    selectedId = row.id;
+    document.querySelectorAll('tbody tr').forEach(r => r.classList.remove('selected'));
+    tr.classList.add('selected');
+  }
+
+  async function saveRow() {
+    if (!selectedId) return alert("Select a row first");
+
+    const updated = {
+      col1: document.getElementById("col1Input").value,
+      col2: document.getElementById("col2Input").value,
+      col3: document.getElementById("col3Input").value,
+      col4: document.getElementById("col4Input").value,
+    };
+
+    try {
+      const res = await fetch(`http://localhost:3000/api/rows/${selectedId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+      if (res.ok) {
+        alert("Row updated!");
+        selectedId = null;
+        document.querySelectorAll('tbody tr').forEach(r => r.classList.remove('selected'));
+        loadTable();
+      } else {
+        const err = await res.json();
+        alert("Error: " + err.error);
+      }
+    } catch (err) {
+      console.error('Save failed:', err);
+    }
+  }
+
+  window.onload = loadTable;
+</script>
+
+</body>
+</html>
